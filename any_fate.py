@@ -229,10 +229,11 @@ class AnyFateUniverse(SimulatedUniverse):
                 else:
                     self.switch_current_role(num=1)
                 # 根据图像识别结果，判断是否施放银狼秘技
-                if "黑塔的办公" not in self.area and self.current_role == 1 and self.check("silverwolf", 0.0609,0.7037) and (not self.check("bean", 0.1536,0.7056)):
-                    key_mouse_manager.press('e')
-                    CUS_LOGGER.debug("已施放银狼秘技")
-                    time.sleep(0.8)
+                if "黑塔的办公" not in self.area:
+                    if self.current_role == 1 and self.check("silverwolf", 0.0609,0.7037) and (not self.check("bean", 0.1536,0.7056)):
+                        key_mouse_manager.press('e')
+                        CUS_LOGGER.debug("已施放银狼秘技")
+                        time.sleep(0.8)
                 battle_map_root = os.path.join(PATHS["image"], "nmaps")
                 if (("战斗" in self.area or "精英" in self.area or "首领" in self.area)
                         and self.loaded_map_root not in (None, battle_map_root)):
