@@ -6,7 +6,7 @@ import sys
 import time
 
 import keyboard
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QKeySequence
 
 from route import PATHS
 from tool import EXTRA
@@ -26,7 +26,7 @@ from tool.utils.image_tool import find_image_by_name, load_all_images_from_direc
 load_all_images_from_directory()
 import faulthandler
 
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
@@ -223,6 +223,7 @@ class MainWindow(QMainWindowLog):
         self.Iron_blood_max_run_input.setText(str(int(data.get("max_run_time", 0))))
         self.Iron_blood_first_plane_input.setText(str(data.get("first_plane", 14)))
         self.Iron_blood_second_plane_input.setText(str(data.get("second_plane", 31)))
+        self.Iron_blood_battle_weight_input.setText(str(data.get("battle_weight", 1.2)))
         self.Iron_blood_first_plane_min_weight_input.setText(str(data.get("first_plane_min_weight", 6)))
         self.Iron_blood_third_plane_pause_input.setText(str(data.get("third_plane_pause_count", 0)))
         self.Iron_blood_interact_time_input.setText(str(data.get("max_interact_time", 40)))
@@ -267,7 +268,10 @@ class MainWindow(QMainWindowLog):
 
         # 连接信号以实现动态更新
         self.connect_dependency_signals()
-
+        
+        # 由 eventFilter 在编辑动作生效前拦截；提示状态持久化在 settings.json
+        self._battle_weight_warning_shown = data.get("battle_weight_warning_shown", False)
+        
         self.restore_action.triggered.connect(self.run_iron_blood)
 
 
@@ -332,6 +336,7 @@ class MainWindow(QMainWindowLog):
         data["max_run_time"] = int(self.Iron_blood_max_run_input.text())
         data["first_plane"] = int(self.Iron_blood_first_plane_input.text())
         data["second_plane"] = int(self.Iron_blood_second_plane_input.text())
+        data["battle_weight"] = float(self.Iron_blood_battle_weight_input.text())
         data["first_plane_min_weight"] = float(self.Iron_blood_first_plane_min_weight_input.text())
         data["third_plane_pause_count"] = int(self.Iron_blood_third_plane_pause_input.text())
         data["max_interact_time"] = int(self.Iron_blood_interact_time_input.text())
@@ -451,6 +456,79 @@ class MainWindow(QMainWindowLog):
         self.recording_checkBox2.stateChanged.connect(lambda: self.update_dependent_controls_state())
         self.early_stop_checkbox.stateChanged.connect(lambda: self.update_dependent_controls_state())
 
+    def eventFilter(self, obj, event):
+        """
+        在战斗格权重首次被编辑前拦截本次操作
+        """
+        if (obj is self.Iron_blood_battle_weight_input
+                and not self._battle_weight_warning_shown
+                and self.is_battle_weight_edit_event(event)):
+            self.show_battle_weight_warning()
+            return True
+        return super().eventFilter(obj, event)
+
+    @staticmethod
+    def is_battle_weight_edit_event(event):
+        """
+        识别会修改 QLineEdit 内容的常见用户操作
+        """
+        if event.type() in (QEvent.InputMethod, QEvent.Drop, QEvent.ContextMenu):
+            return True
+        if event.type() != QEvent.KeyPress:
+            return False
+
+        if event.key() in (Qt.Key_Backspace, Qt.Key_Delete):
+            return True
+        if event.matches(QKeySequence.Cut) or event.matches(QKeySequence.Paste):
+            return True
+        if event.matches(QKeySequence.Undo) or event.matches(QKeySequence.Redo):
+            return True
+
+        modifier_keys = Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier
+        return bool(event.text()) and not (event.modifiers() & modifier_keys)
+
+    def show_battle_weight_warning(self):
+        """
+        显示首次编辑确认提示
+        """
+        if self._battle_weight_warning_shown:
+            return
+        self._battle_weight_warning_shown = True
+        self.save_battle_weight_warning_state()
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("警告（本窗口仅会弹出一次）")
+        msg.setText("修改权重前请先阅读以下内容：\n\n"
+                    "1、权重原理：\n"
+                    "        在铁血战士程序中，“权重”表示某一类型的格子内遇到的战斗数量期望。不同类型的格子拥有不同的权重，例如战斗格默认为1.2（85%概率刷出单怪、10%概率刷出双怪、5%概率刷出三怪），精英格为1（必定单怪），交易格为0（必定无怪）等等，详见“常见问题与更新日志”。权杖会根据权重选择最优路径、骰子最佳替换节点。\n\n"
+                    "2、修改战斗格权重的影响：\n"
+                    "        本质是为了多战收益而增大断战风险。作者认为，提高战斗格的权重不能提高战斗数的分布，因为大数定律确保了这个数一定收敛于期望附近，改激进并不会对一局产生有益的帮助，只能有助于更早的重开。\n\n"
+                    "3、其他因素：\n"
+                    "        在没有骰子替换战斗的前提下，这个模型基本没有问题。但是，某个位置的期望还应该叠加上这条路径上自然产生的替换战斗的差分的期望。本模型尚未考虑该因素。\n\n"
+                    "        若尝试修改此项，需同时修改下方的“第一面最低期望权重”以匹配。计算方法：新权重 = 原权重 + 一面平均战斗格数量 × 战斗格权重变化量。可以尝试多种组合，比较轮回结果的进二面+三面概率，选择适合自己的最佳组合。")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.button(QMessageBox.Ok).setText("我已知悉")
+        msg.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        msg.setEscapeButton(None)
+        msg.exec_()
+
+    def save_battle_weight_warning_state(self):
+        """
+        将已提示状态写入现有配置，使其跨重启生效
+        """
+        settings_path = PATHS["root"] + "\\config\\config\\settings.json"
+        try:
+            with EXTRA.FILE_LOCK:
+                with open(settings_path, encoding="UTF-8") as file:
+                    data = json.load(file)
+                data["battle_weight_warning_shown"] = True
+                with open(settings_path, mode="w", encoding="UTF-8") as file:
+                    json.dump(data, file, ensure_ascii=False, indent=4)
+            self.opt = data
+        except (OSError, json.JSONDecodeError):
+            # 配置写入失败时仍避免在当前会话内重复阻断用户操作
+            pass
+    
     def closeEvent(self, event):
         """
         窗口关闭事件，清理键盘监听器
