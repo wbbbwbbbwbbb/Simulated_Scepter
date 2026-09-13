@@ -495,8 +495,15 @@ class MainWindow(QMainWindowLog):
         self.save_battle_weight_warning_state()
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Warning)
-        msg.setWindowTitle("警告")
-        msg.setText("警告：")
+        msg.setWindowTitle("警告（本窗口仅会弹出一次）")
+        msg.setText("修改权重前请先阅读以下内容：\n\n"
+                    "1、权重原理：\n"
+                    "        在铁血战士程序中，“权重”表示某一类型的格子内遇到的战斗数量期望。不同类型的格子拥有不同的权重，例如战斗格默认为1.2（85%概率刷出单怪、10%概率刷出双怪、5%概率刷出三怪），精英格为1（必定单怪），交易格为0（必定无怪）等等，详见“常见问题与更新日志”。权杖会根据权重选择最优路径、骰子最佳替换节点。\n\n"
+                    "2、修改战斗格权重的影响：\n"
+                    "        本质是为了多战收益而增大断战风险。作者认为，提高战斗格的权重不能提高战斗数的分布，因为大数定律确保了这个数一定收敛于期望附近，改激进并不会对一局产生有益的帮助，只能有助于更早的重开。\n\n"
+                    "3、其他因素：\n"
+                    "        在没有骰子替换战斗的前提下，这个模型基本没有问题。但是，某个位置的期望还应该叠加上这条路径上自然产生的替换战斗的差分的期望。本模型尚未考虑该因素。\n\n"
+                    "        若尝试修改此项，需同时修改下方的“第一面最低期望权重”以匹配。计算方法：新权重 = 原权重 + 一面平均战斗格数量 × 战斗格权重变化量。可以尝试多种组合，比较轮回结果的进二面+三面概率，选择适合自己的最佳组合。")
         msg.setStandardButtons(QMessageBox.Ok)
         msg.button(QMessageBox.Ok).setText("我已知悉")
         msg.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
