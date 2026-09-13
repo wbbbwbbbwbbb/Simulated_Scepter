@@ -1251,20 +1251,6 @@ border:none</string>
                   </widget>
                  </item>
                  <item>
-                   <layout class="QHBoxLayout" name="horizontalLayout_recording_keep_long_run">
-                   <item>
-                    <widget class="QLabel" name="label_recording_keep_long_run">
-                     <property name="text">
-                      <string>演算时间过长录制保留阈值（分钟数÷战斗数）</string>
-                     </property>
-                     </widget>
-                   </item>
-                   <item>
-                     <widget class="QLineEdit" name="recording_keep_long_run_input"/>
-                   </item>
-                   </layout>
-                 </item>
-                 <item>
                   <widget class="QLabel" name="label_27">
                    <property name="text">
                     <string>高级用户功能</string>
