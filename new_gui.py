@@ -219,7 +219,6 @@ class MainWindow(QMainWindowLog):
         self.early_stop_checkbox.setChecked(data.get("early_stop", False))
         self.pig_switch_2_role.setChecked(data.get("pig_switch_2_role", False))
         self.recording_time_input.setText(str(data.get("del_record_time", 31)))
-        self.recording_keep_long_run_checkbox.setChecked(data.get("recording_keep_long_run_enabled", False))
         self.recording_keep_long_run_input.setText(str(data.get("recording_keep_long_run_threshold", 1)))
         self.record_event_map_checkbox.setChecked(data.get("record_event_map", False))
         self.Iron_blood_max_run_input.setText(str(int(data.get("max_run_time", 0))))
@@ -330,7 +329,6 @@ class MainWindow(QMainWindowLog):
         data["early_stop"] = self.early_stop_checkbox.isChecked()
         data["pig_switch_2_role"] = self.pig_switch_2_role.isChecked()
         data["del_record_time"] = int(self.recording_time_input.text())
-        data["recording_keep_long_run_enabled"] = self.recording_keep_long_run_checkbox.isChecked()
         data["recording_keep_long_run_threshold"] = float(self.recording_keep_long_run_input.text())
         data["record_event_map"] = self.record_event_map_checkbox.isChecked()
         data["max_run_time"] = int(self.Iron_blood_max_run_input.text())
@@ -438,8 +436,7 @@ class MainWindow(QMainWindowLog):
         debug_and_recording = debug_enabled and self.recording_checkBox2.isChecked()
         self.recording_label_checkbox.setEnabled(debug_and_recording)
         self.recording_time_input.setEnabled(self.recording_checkBox2.isChecked())
-        self.recording_keep_long_run_checkbox.setEnabled(self.recording_checkBox2.isChecked())
-        self.recording_keep_long_run_input.setEnabled(self.recording_checkBox2.isChecked() and self.recording_keep_long_run_checkbox.isChecked())
+        self.recording_keep_long_run_input.setEnabled(debug_and_recording)
         # 事件地图录图属于调试功能，仅在调试模式下展示。
         self.record_event_map_checkbox.setVisible(debug_enabled)
         self.record_event_map_checkbox.setEnabled(debug_enabled)
@@ -455,7 +452,6 @@ class MainWindow(QMainWindowLog):
     def connect_dependency_signals(self):
         self.debug_checkox2.stateChanged.connect(lambda: self.update_dependent_controls_state())
         self.recording_checkBox2.stateChanged.connect(lambda: self.update_dependent_controls_state())
-        self.recording_keep_long_run_checkbox.stateChanged.connect(lambda: self.update_dependent_controls_state())
         self.early_stop_checkbox.stateChanged.connect(lambda: self.update_dependent_controls_state())
 
     def closeEvent(self, event):
