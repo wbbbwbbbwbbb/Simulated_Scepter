@@ -6,7 +6,7 @@ import sys
 import time
 
 import keyboard
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QKeySequence
 
 from route import PATHS
 from tool import EXTRA
@@ -26,7 +26,7 @@ from tool.utils.image_tool import find_image_by_name, load_all_images_from_direc
 load_all_images_from_directory()
 import faulthandler
 
-from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot, QEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QDialog,
@@ -267,7 +267,10 @@ class MainWindow(QMainWindowLog):
 
         # 连接信号以实现动态更新
         self.connect_dependency_signals()
-
+        
+        # 由 eventFilter 在编辑动作生效前拦截；提示状态持久化在 settings.json
+        self._battle_weight_warning_shown = data.get("battle_weight_warning_shown", False)
+        
         self.restore_action.triggered.connect(self.run_iron_blood)
 
 
@@ -451,6 +454,72 @@ class MainWindow(QMainWindowLog):
         self.recording_checkBox2.stateChanged.connect(lambda: self.update_dependent_controls_state())
         self.early_stop_checkbox.stateChanged.connect(lambda: self.update_dependent_controls_state())
 
+    def eventFilter(self, obj, event):
+        """
+        在战斗格权重首次被编辑前拦截本次操作
+        """
+        if (obj is self.Iron_blood_battle_weight_input
+                and not self._battle_weight_warning_shown
+                and self.is_battle_weight_edit_event(event)):
+            self.show_battle_weight_warning()
+            return True
+        return super().eventFilter(obj, event)
+
+    @staticmethod
+    def is_battle_weight_edit_event(event):
+        """
+        识别会修改 QLineEdit 内容的常见用户操作
+        """
+        if event.type() in (QEvent.InputMethod, QEvent.Drop, QEvent.ContextMenu):
+            return True
+        if event.type() != QEvent.KeyPress:
+            return False
+
+        if event.key() in (Qt.Key_Backspace, Qt.Key_Delete):
+            return True
+        if event.matches(QKeySequence.Cut) or event.matches(QKeySequence.Paste):
+            return True
+        if event.matches(QKeySequence.Undo) or event.matches(QKeySequence.Redo):
+            return True
+
+        modifier_keys = Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier
+        return bool(event.text()) and not (event.modifiers() & modifier_keys)
+
+    def show_battle_weight_warning(self):
+        """
+        显示首次编辑确认提示
+        """
+        if self._battle_weight_warning_shown:
+            return
+        self._battle_weight_warning_shown = True
+        self.save_battle_weight_warning_state()
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle("警告")
+        msg.setText("警告：")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.button(QMessageBox.Ok).setText("我已知悉")
+        msg.setWindowFlags(Qt.Dialog | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        msg.setEscapeButton(None)
+        msg.exec_()
+
+    def save_battle_weight_warning_state(self):
+        """
+        将已提示状态写入现有配置，使其跨重启生效
+        """
+        settings_path = PATHS["root"] + "\\config\\config\\settings.json"
+        try:
+            with EXTRA.FILE_LOCK:
+                with open(settings_path, encoding="UTF-8") as file:
+                    data = json.load(file)
+                data["battle_weight_warning_shown"] = True
+                with open(settings_path, mode="w", encoding="UTF-8") as file:
+                    json.dump(data, file, ensure_ascii=False, indent=4)
+            self.opt = data
+        except (OSError, json.JSONDecodeError):
+            # 配置写入失败时仍避免在当前会话内重复阻断用户操作
+            pass
+    
     def closeEvent(self, event):
         """
         窗口关闭事件，清理键盘监听器
