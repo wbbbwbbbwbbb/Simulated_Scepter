@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 
 import cv2
@@ -147,6 +148,17 @@ def match_multiple_targets(processed_image, mode=1, threshold=0.5, color_image=N
 
     return results
 
+def get_battle_weight(default=1.2):
+    '''
+    用于读取配置文件中的战斗格权重，默认值为1.2
+    '''
+    settings_path = os.path.join(PATHS["root"], "config", "config", "settings.json")
+    try:
+        with open(settings_path, "r", encoding="UTF-8") as f:
+            data = json.load(f)
+        return float(data.get("battle_weight", default))
+    except Exception:
+        return float(default)
 
 def build_rightward_graph(matches, start=None, max_gap=90.0, max_overlap=40.0, max_dy=120.0,
                           plane=1, chaoyan_seen=False):
@@ -176,12 +188,14 @@ def build_rightward_graph(matches, start=None, max_gap=90.0, max_overlap=40.0, m
     event_weight = ({1: 0.31, 2: 0.34, 3: 0.36} if chaoyan_seen
                     else {1: 0.33, 2: 0.36, 3: 0.36}).get(plane, 0.36)
     reward_weight = 0.2 if chaoyan_seen else 0.4
+    battle_weight = get_battle_weight(1.2) # 读取配置中的战斗格权重
     weight_map = {
         'event': event_weight, 'wait': 0, 'trade': 0, 'trade2': 0, 'adventure': 0,
-        'reward': reward_weight, 'reward2': reward_weight, 'battle': 1.2, 'elite': 1,
+        'reward': reward_weight, 'reward2': reward_weight, 'battle': battle_weight, 'elite': 1,
         'bugevent': 0.66,
         'bugbattle': 1, 'head': 1, 'boss': 1, 'blank': 0
     }
+    CUS_LOGGER.debug(f"当前战斗格权重为：{weight_map['battle']}") # 增加战斗格权重日志
     if not matches:
         return [], {}, None
     nodes = []
