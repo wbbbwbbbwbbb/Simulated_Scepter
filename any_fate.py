@@ -233,7 +233,8 @@ class AnyFateUniverse(SimulatedUniverse):
                     if self.current_role == 1 and self.check("silverwolf", 0.0609,0.7037) and (not self.check("bean", 0.1536,0.7056)):
                         key_mouse_manager.press('e')
                         CUS_LOGGER.debug("已施放银狼秘技")
-                        key_mouse_manager.sleep(0.8)
+                        key_mouse_manager.sleep(0.6)
+                key_mouse_manager.wait()
                 battle_map_root = os.path.join(PATHS["image"], "nmaps")
                 if (("战斗" in self.area or "精英" in self.area or "首领" in self.area)
                         and self.loaded_map_root not in (None, battle_map_root)):
